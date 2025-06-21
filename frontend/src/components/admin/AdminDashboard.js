@@ -14,6 +14,7 @@ import {
   Box,
 } from "@mui/material";
 import axios from "axios";
+import axiosInstance from "../../api/axios";
 
 const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
@@ -32,7 +33,7 @@ const AdminDashboard = () => {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get("http://localhost:5000/api/users", {
+      const response = await axiosInstance.get("/users", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setUsers(response.data);
@@ -44,7 +45,7 @@ const AdminDashboard = () => {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await axios.get("http://localhost:5000/api/admin/stats", {
+      const response = await axiosInstance.get("/admin/stats", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setStats(response.data);
@@ -56,7 +57,7 @@ const AdminDashboard = () => {
   const handleDeleteUser = async (userId) => {
     try {
       const token = localStorage.getItem("token");
-      await axios.delete(`http://localhost:5000/api/users/${userId}`, {
+      await axiosInstance.delete(`/users/${userId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       fetchUsers();

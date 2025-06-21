@@ -24,8 +24,8 @@ import {
   Legend,
 } from 'chart.js';
 import { Line, Bar } from 'react-chartjs-2';
-import axios from 'axios';
 import Plot from 'react-plotly.js';
+import axiosInstance from '../../api/axios';
 
 
 ChartJS.register(
@@ -63,7 +63,7 @@ const Analysis = () => {
   const fetchFileData = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:5000/api/files/${fileId}/data`, {
+      const response = await axiosInstance.get(`/files/${fileId}/data`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setFileData(response.data.data);
@@ -76,8 +76,8 @@ const Analysis = () => {
   const handleSaveAnalysis = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.post(
-        `http://localhost:5000/api/analysis/${fileId}`,
+      await axiosInstance.post(
+        `/analysis/${fileId}`,
         { chartType, xAxis: selectedX, yAxis: selectedY },
         { headers: { Authorization: `Bearer ${token}` } }
       );
