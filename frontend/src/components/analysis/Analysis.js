@@ -19,14 +19,24 @@ import {
   PointElement,
   LineElement,
   BarElement,
-  Title,
+  ArcElement,
+  RadarController,
+  RadialLinearScale,
+  BubbleController,
   Tooltip,
   Legend,
+  Title,
 } from 'chart.js';
-import { Line, Bar } from 'react-chartjs-2';
+import {
+  Line,
+  Bar,
+  Pie,
+  Doughnut,
+  Radar,
+  Bubble,
+} from 'react-chartjs-2';
+import axios from 'axios';
 import Plot from 'react-plotly.js';
-import axiosInstance from '../../api/axios';
-
 
 ChartJS.register(
   CategoryScale,
@@ -34,6 +44,10 @@ ChartJS.register(
   PointElement,
   LineElement,
   BarElement,
+  ArcElement,
+  RadarController,
+  RadialLinearScale,
+  BubbleController,
   Title,
   Tooltip,
   Legend
@@ -54,7 +68,7 @@ const Analysis = () => {
   }, [fileId]);
 
   useEffect(() => {
-    if (fileData && headers.length > 0) {
+    if (fileData && headers.length > 1) {
       setSelectedX(headers[0]);
       setSelectedY(headers[1]);
     }
@@ -63,7 +77,7 @@ const Analysis = () => {
   const fetchFileData = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axiosInstance.get(`/files/${fileId}/data`, {
+      const response = await axios.get(`http://localhost:5000/api/files/${fileId}/data`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setFileData(response.data.data);
@@ -76,8 +90,8 @@ const Analysis = () => {
   const handleSaveAnalysis = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axiosInstance.post(
-        `/analysis/${fileId}`,
+      await axios.post(
+        `http://localhost:5000/api/analysis/${fileId}`,
         { chartType, xAxis: selectedX, yAxis: selectedY },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -88,7 +102,6 @@ const Analysis = () => {
 
   const prepareChartData = () => {
     if (!fileData || !selectedX || !selectedY) return null;
-
     const labels = fileData.map(item => item[selectedX]);
     const data = fileData.map(item => item[selectedY]);
 
@@ -98,9 +111,13 @@ const Analysis = () => {
         {
           label: `${selectedY} vs ${selectedX}`,
           data,
-          borderColor: 'rgb(34, 197, 94)',
-          backgroundColor: 'rgba(34, 197, 94, 0.4)',
-          fill: true,
+          backgroundColor: [
+            '#34D399', '#60A5FA', '#FBBF24', '#F87171', '#A78BFA',
+            '#4ADE80', '#F472B6', '#FACC15', '#38BDF8', '#FB7185'
+          ],
+          borderColor: 'rgba(0,0,0,0.1)',
+          borderWidth: 1,
+          fill: chartType === 'line',
           tension: 0.3,
         },
       ],
@@ -108,90 +125,100 @@ const Analysis = () => {
   };
 
   const downloadChart = () => {
-  if (chartType === '3d') {
-    const plotlyElement = document.getElementById('plotly-chart');
-    if (plotlyElement) {
-      window.Plotly.downloadImage(plotlyElement, {
-        format: 'png',
-        filename: '3d-chart',
-        height: 600,
-        width: 800,
-        scale: 2,
-      });
+    if (chartType === '3d') {
+      const plotlyElement = document.getElementById('plotly-chart');
+      if (plotlyElement) {
+        window.Plotly.downloadImage(plotlyElement, {
+          format: 'png',
+          filename: '3d-chart',
+          height: 600,
+          width: 800,
+          scale: 2,
+        });
+      } else {
+        console.error("Plotly chart not found");
+      }
     } else {
-      console.error("Plotly chart not found");
+      const canvas = document.querySelector('canvas');
+      if (canvas) {
+        const link = document.createElement('a');
+        link.download = 'chart.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }
     }
-  } else {
-    // Chart.js fallback
-    const canvas = document.querySelector('canvas');
-    if (canvas) {
-      const link = document.createElement('a');
-      link.download = 'chart.png';
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    }
-  }
-};
-
-
-  const renderChart = () => {
-  const chartData = prepareChartData();
-  if (!chartData) return null;
-
-  if (chartType === '3d') {
-    const x = fileData.map(item => item[selectedX]);
-    const y = fileData.map(item => item[selectedY]);
-    const z = fileData.map((_, i) => i); // You can customize z-axis as needed
-
-    return (
-      <Plot
-        data={[
-          {
-            x,
-            y,
-            z,
-            mode: 'markers',
-            type: 'scatter3d',
-            marker: { size: 4, color: z, colorscale: 'Viridis' },
-          },
-        ]}
-        layout={{
-          margin: { l: 0, r: 0, b: 0, t: 30 },
-          height: 400,
-          title: `${selectedY} vs ${selectedX} (3D)`,
-          scene: {
-            xaxis: { title: selectedX },
-            yaxis: { title: selectedY },
-            zaxis: { title: 'Index' },
-          },
-        }}
-        config={{ responsive: true }}
-  divId="plotly-chart"
-      />
-    );
-  }
-
-  // Line & Bar (original logic)
-  const options = {
-    responsive: true,
-    plugins: {
-      legend: { position: 'top' },
-      title: {
-        display: true,
-        text: `${selectedY} vs ${selectedX}`,
-        font: { size: 18 },
-      },
-    },
   };
 
-  return chartType === 'line'
-    ? <Line data={chartData} options={options} />
-    : <Bar data={chartData} options={options} />;
-};
+  const renderChart = () => {
+    const chartData = prepareChartData();
+    if (!chartData) return null;
 
+    if (chartType === '3d') {
+      const x = fileData.map(item => item[selectedX]);
+      const y = fileData.map(item => item[selectedY]);
+      const z = fileData.map((_, i) => i);
+
+      return (
+        <Plot
+          data={[
+            {
+              x,
+              y,
+              z,
+              mode: 'markers',
+              type: 'scatter3d',
+              marker: { size: 4, color: z, colorscale: 'Viridis' },
+            },
+          ]}
+          layout={{
+            margin: { l: 0, r: 0, b: 0, t: 30 },
+            height: 400,
+            title: `${selectedY} vs ${selectedX} (3D)`,
+            scene: {
+              xaxis: { title: selectedX },
+              yaxis: { title: selectedY },
+              zaxis: { title: 'Index' },
+            },
+          }}
+          config={{ responsive: true }}
+          divId="plotly-chart"
+        />
+      );
+    }
+
+    const options = {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top' },
+        title: {
+          display: true,
+          text: `${selectedY} vs ${selectedX}`,
+          font: { size: 18 },
+        },
+      },
+    };
+
+    switch (chartType) {
+      case 'line': return <Line data={chartData} options={options} />;
+      case 'bar': return <Bar data={chartData} options={options} />;
+      case 'pie': return <Pie data={chartData} options={options} />;
+      case 'doughnut': return <Doughnut data={chartData} options={options} />;
+      case 'radar': return <Radar data={chartData} options={options} />;
+      case 'bubble':
+        const bubbleData = {
+          datasets: fileData.map((item, index) => ({
+            label: `${selectedY} at ${item[selectedX]}`,
+            data: [{ x: index, y: item[selectedY], r: Math.abs(item[selectedY]) / 2 || 5 }],
+            backgroundColor: `rgba(${(index * 30) % 255}, ${(index * 50) % 255}, ${(index * 70) % 255}, 0.6)`
+          })),
+        };
+        return <Bubble data={bubbleData} options={options} />;
+      default: return null;
+    }
+  };
 
   return (
-    <Container maxWidth="lg" className="animate-fadeIn" sx={{ mt: 6, mb: 4 }}>
+    <Container maxWidth="lg" sx={{ mt: 6, mb: 4 }}>
       <Grid container spacing={3}>
         <Grid item xs={12}>
           <Paper
@@ -200,11 +227,10 @@ const Analysis = () => {
               p: 3,
               borderRadius: 3,
               boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
-              background: 'linear-gradient(to right, #ffffff, #f9fafb)'
+              background: 'linear-gradient(to right, #ffffff, #f9fafb)',
             }}
-            className="hover:shadow-xl transition-shadow duration-300"
           >
-            <Typography variant="h5" component="h1" gutterBottom className="text-green-700 font-bold">
+            <Typography variant="h5" gutterBottom className="text-green-700 font-bold">
               Data Analysis
             </Typography>
 
@@ -214,7 +240,6 @@ const Analysis = () => {
               </Typography>
             )}
 
-            {/* Selection Fields */}
             <Grid container spacing={2} sx={{ mb: 3 }}>
               <Grid item xs={12} sm={4}>
                 <FormControl fullWidth>
@@ -246,31 +271,23 @@ const Analysis = () => {
                   <Select value={chartType} label="Chart Type" onChange={(e) => setChartType(e.target.value)}>
                     <MenuItem value="line">Line Chart</MenuItem>
                     <MenuItem value="bar">Bar Chart</MenuItem>
+                    <MenuItem value="pie">Pie Chart</MenuItem>
+                    <MenuItem value="doughnut">Doughnut Chart</MenuItem>
+                    <MenuItem value="radar">Radar Chart</MenuItem>
+                    <MenuItem value="bubble">Bubble Chart</MenuItem>
                     <MenuItem value="3d">3D Scatter Chart</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
             </Grid>
 
-            {/* Chart Section */}
-            <Box sx={{ height: 400, mb: 2 }}>
-              {renderChart()}
-            </Box>
+            <Box sx={{ height: 400, mb: 2 }}>{renderChart()}</Box>
 
-            {/* Action Buttons */}
             <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button
-                variant="contained"
-                onClick={handleSaveAnalysis}
-                className="bg-green-600 hover:bg-green-700 text-white transition-transform hover:scale-105"
-              >
+              <Button variant="contained" onClick={handleSaveAnalysis} className="bg-green-600 text-white">
                 Save Analysis
               </Button>
-              <Button
-                variant="outlined"
-                onClick={downloadChart}
-                className="hover:scale-105 transition-transform"
-              >
+              <Button variant="outlined" onClick={downloadChart}>
                 Download Chart
               </Button>
             </Box>
@@ -280,5 +297,4 @@ const Analysis = () => {
     </Container>
   );
 };
-
 export default Analysis;
